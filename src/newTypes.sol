@@ -8,7 +8,7 @@ struct SignedPerson {
   address signer;
 }
 
-bytes32 constant signedpersonTypehash = keccak256("SignedPerson(Person message,bytes signature,address signer)Person(address From,uint256 tokenId,uint256 Price,uint256 AmountToSell)");
+bytes32 constant signedpersonTypehash = keccak256("SignedPerson(Person message,bytes signature,address signer)Person(uint256 listingId,address From,uint256 tokenId,uint256 Price,uint256 AmountToSell)");
 
 struct EIP712Domain {
   string name;
@@ -20,13 +20,14 @@ struct EIP712Domain {
 bytes32 constant eip712domainTypehash = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
 struct Person {
+  uint256 listingId;
   address From;
   uint256 tokenId;
   uint256 Price;
   uint256 AmountToSell;
 }
 
-bytes32 constant personTypehash = keccak256("Person(address From,uint256 tokenId,uint256 Price,uint256 AmountToSell)");
+bytes32 constant personTypehash = keccak256("Person(uint256 listingId,address From,uint256 tokenId,uint256 Price,uint256 AmountToSell)");
 
 
 abstract contract ERC1271Contract {
@@ -112,7 +113,8 @@ function getEip712DomainPacketHash (EIP712Domain memory _input) public pure retu
 function getPersonPacketHash (Person memory _input) public pure returns (bytes32) {
   bytes memory encoded = abi.encode(
     personTypehash,
-    _input.From,
+    _input.listingId,
+      _input.From,
       _input.tokenId,
       _input.Price,
       _input.AmountToSell

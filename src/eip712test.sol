@@ -6,17 +6,21 @@ import "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/Nft.sol";
-import "./TypesFile.sol";
+import "./newTypes.sol";
 import "src/tokenIdentifiers.sol";
 
 contract eip712Test is EIP712Decoder{
     using SafeERC20 for IERC20;
     using TokenIdentifiers for uint256;
 
+    //This would enable partial filling of tokens
+    mapping(uint256 => uint256) tokensFilled;
+
     bytes32 constant EIP712DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     ERCTOKEN public Nft = ERCTOKEN(0x6079555928a48536E79bA424917beD02fFA78c04);
     IERC20 public  wrappedShm = IERC20(0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6);
-    struct Identity {
+    struct Data {
+        uint256 listingId;
         address from;
         uint256 tokenId;
         uint256 Price;
@@ -46,15 +50,17 @@ function getEIP712DomainHash(string memory contractName, string memory version, 
           uint256 tokenId = _data.message.tokenId;
           uint256 maxSupply = TokenIdentifiers.tokenMaxSupply(tokenId);
           uint256 currentSupply = Nft.totalSupply(tokenId);
+          uint256 listingId = _data.message.listingId;
+          uint256 cacheTokensFilled = tokensFilled[listingId];
           
           require(verifySignedPerson(_data) == creatorAddress,"Addres validation check failed");
           require(tokenId.tokenCreator() == creatorAddress,"Address validation check failed 2");
           
           require(_amountToBuy+currentSupply <= maxSupply, "Your purchase will exceed the supply of the tokens");
-
-            //@note: Currently known issue where AmountToSell is not reliable as he can just loop buy it and pass this check 
-            //@note: Working on fixing it would apprecieate any ideas
-          require(_amountToBuy <= _data.message.AmountToSell, "Your amount exceeds maximum sale amount");  
+          //Umm couldn't find another way 
+          //This would enable partial fill of tokens 
+          require(_amountToBuy +cacheTokensFilled <= _data.message.AmountToSell, "Your amount exceeds maximum sale amount");  
+          tokensFilled[listingId] = cacheTokensFilled + _amountToBuy;
 
           wrappedShm.safeTransferFrom(msg.sender,creatorAddress,_data.message.Price*_amountToBuy);
           Nft.mint(_to,tokenId,_amountToBuy,"");
