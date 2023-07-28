@@ -7,10 +7,11 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/Nft.sol";
 import "./TypesFile.sol";
+import "src/tokenIdentifiers.sol";
 
-import "src/tokeIdentifiers.sol";
 contract eip712Test is EIP712Decoder{
     using SafeERC20 for IERC20;
+    using TokenIdentifiers for uint256;
 
     bytes32 constant EIP712DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     ERCTOKEN public Nft = ERCTOKEN(0x6079555928a48536E79bA424917beD02fFA78c04);
@@ -41,23 +42,22 @@ function getEIP712DomainHash(string memory contractName, string memory version, 
 
      function mintAndTransfer(address _to,SignedPerson memory _data,uint256 _amountToBuy) external 
     {
-          
-          //First check if the from address in the data and the address from signed data is the same
-          
-          require(verifySignedPerson(_data) == _data.message.From,"Addres validation check failed");
-
-          require(TokenIdentifiers.tokenCreator(_data.message.tokenId) == _data.message.From,"Address validation check failed 2");
+          address creatorAddress = _data.message.From;
           uint256 tokenId = _data.message.tokenId;
-
-          //Check if the _amountToBuy + current Balance of the token < maxSupplyEncoded in the token Id
-
           uint256 maxSupply = TokenIdentifiers.tokenMaxSupply(tokenId);
           uint256 currentSupply = Nft.totalSupply(tokenId);
+          
+          require(verifySignedPerson(_data) == creatorAddress,"Addres validation check failed");
+          require(tokenId.tokenCreator() == creatorAddress,"Address validation check failed 2");
+          
+          require(_amountToBuy+currentSupply <= maxSupply, "Your purchase will exceed the supply of the tokens");
 
-            require(_amountToBuy+currentSupply <= maxSupply, "Your purchase will exceed the supply of the tokens");
-            wrappedShm.safeTransferFrom(msg.sender,_data.message.From,_data.message.Price*_amountToBuy);
+            //@note: Currently known issue where AmountToSell is not reliable as he can just loop buy it and pass this check 
+            //@note: Working on fixing it would apprecieate any ideas
+          require(_amountToBuy <= _data.message.AmountToSell, "Your amount exceeds maximum sale amount");  
 
-            Nft.mint(_to,tokenId,_amountToBuy,"");
+          wrappedShm.safeTransferFrom(msg.sender,creatorAddress,_data.message.Price*_amountToBuy);
+          Nft.mint(_to,tokenId,_amountToBuy,"");
             
     }
 
